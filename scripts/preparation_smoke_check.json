@@ -1,0 +1,19 @@
+{
+  "stage": "prepared",
+  "fit_performed": false,
+  "model_loaded": false,
+  "train_events": 5480,
+  "test_events": 936,
+  "features": 16,
+  "train_test_session_disjoint": true,
+  "condition_calibration_policy_match": true,
+  "frozen_features_targets_exact_match": {
+    "x_train": true,
+    "y_train": true,
+    "x_test": true,
+    "y_test": true
+  },
+  "validation": "prepare-only and array equality; no GP fit or model load",
+  "same_file_train_test_rejected": true,
+  "no_output_created_on_same_file_rejection": true
+}

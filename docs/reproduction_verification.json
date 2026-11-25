@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "train_events": 5480,
+  "test_events": 936,
+  "features": 16,
+  "relative_path_evaluation": true,
+  "all_train_features_and_labels_verified": true,
+  "maximum_metric_difference": 3.5842231960181437e-12,
+  "tolerance": 1e-09,
+  "model_sha256": "15ac6bacc60c0b31c2e9fb86e87eb581832dcba8a6c5c6d4f9b4f5bbf8733a30",
+  "model_fit_performed_during_verification": false,
+  "hardware_accessed": false
+}
