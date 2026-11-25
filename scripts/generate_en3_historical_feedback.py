@@ -1,8 +1,8 @@
 """Plot three historical feedback metrics using four trusted CSV columns only.
 
 No controller-name remapping, prediction, model loading, training or hardware.
-Example: E:\\python\\python.exe scripts/generate_en3_historical_feedback.py
-         --csv control_feedback_results.csv --assets output/EN3_GPR16_paper_20261124/assets
+Run: python scripts/generate_en3_historical_feedback.py
+The defaults read data/raw/historical_feedback.csv and write results/local_runs/figures.
 """
 from __future__ import annotations
 
@@ -93,9 +93,9 @@ def statistics(values):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--csv", type=Path, default=ROOT / "control_feedback_results.csv")
+    parser.add_argument("--csv", type=Path, default=ROOT / "data" / "raw" / "historical_feedback.csv")
     parser.add_argument("--assets", type=Path,
-                        default=ROOT / "output" / "EN3_GPR16_paper_20261124" / "assets")
+                        default=ROOT / "results" / "local_runs" / "figures")
     args = parser.parse_args()
     csv_path, assets = args.csv.resolve(), args.assets.resolve()
     data, source = load_csv(csv_path)

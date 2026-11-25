@@ -1,2 +1,2 @@
-# Preserve frozen source and data bytes across platforms.
+# Preserve source and raw data bytes across platforms.
 * -text

@@ -1,6 +1,0 @@
-# Original saved-model numerical versions (original Python 3.9.10).
-numpy==1.26.4
-scipy==1.13.1
-scikit-learn==1.6.1
-joblib==1.5.2
-threadpoolctl==3.5.0

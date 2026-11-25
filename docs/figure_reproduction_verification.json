@@ -1,9 +1,0 @@
-{
-  "passed": true,
-  "relative_path_plotting": true,
-  "test_events": 936,
-  "axis_components": 3744,
-  "prediction_metric_summary_identical": true,
-  "historical_records_per_group": 38,
-  "model_loaded": false
-}

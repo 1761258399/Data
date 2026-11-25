@@ -1,8 +1,9 @@
-"""Create three EN3 publication figures from frozen GPR16 TEST predictions.
+"""Create three EN3 publication figures from local GPR16 evaluation outputs.
 
 No model loading, fitting, inference, production imports, or hardware access.
-Only new figure files and their summary are written below the assets directory.
-Run: E:\\python\\python.exe scripts/generate_en3_gpr16_paper_figures.py
+First run training or evaluation to produce predictions, event keys and metrics.
+The raw TEST CSV is read separately. Figures and their summary are written to assets.
+Run: python scripts/generate_en3_gpr16_paper_figures.py
 """
 from __future__ import annotations
 
@@ -17,8 +18,8 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_RUN = ROOT / "output" / "EN3_GPR16_20261124_102844"
-DEFAULT_ASSETS = ROOT / "output" / "EN3_GPR16_paper_20261124" / "assets"
+DEFAULT_RUN = ROOT / "results" / "local_runs" / "evaluation"
+DEFAULT_ASSETS = ROOT / "results" / "local_runs" / "figures"
 DEPENDENCIES = ROOT / "tmp" / "plot_dependencies"
 if DEPENDENCIES.is_dir():
     sys.path.insert(0, str(DEPENDENCIES))
@@ -90,11 +91,11 @@ def box_statistics(values):
                 whisker_rule="Most extreme observed value within 1.5 IQR of Q1/Q3; all outliers shown")
 
 
-def load_data(run):
+def load_data(run, test_csv):
     sources = []
     predictions = read_csv(run / "test_predictions.csv", sources)
     event_rows = read_csv(run / "test_event_keys.csv", sources)
-    boundaries = read_csv(run / "input" / "test.csv", sources)
+    boundaries = read_csv(test_csv, sources)
     metrics = json.loads(read_source(run / "test_metrics.json", sources))
     require(len(predictions) == len(event_rows) == 936, "Expected exactly 936 TEST events")
     boundary_map = {}
@@ -286,6 +287,8 @@ def main():
     global matplotlib, plt, MaxNLocator
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", type=Path, default=DEFAULT_RUN)
+    parser.add_argument("--test-csv", type=Path, default=ROOT / "data" / "raw" / "test.csv",
+                        help="Raw TEST boundary CSV corresponding to the evaluation outputs")
     parser.add_argument("--assets", type=Path, default=DEFAULT_ASSETS,
                         help="Output directory for the six figure files and figure_data_summary.json")
     args = parser.parse_args()
@@ -298,7 +301,7 @@ def main():
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from matplotlib.ticker import MaxNLocator
-    data = load_data(run)
+    data = load_data(run, args.test_csv.resolve())
     plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 9, "pdf.fonttype": 42,
                          "ps.fonttype": 42, "axes.unicode_minus": True,
                          "savefig.facecolor": "white", "axes.titleweight": "semibold"})
