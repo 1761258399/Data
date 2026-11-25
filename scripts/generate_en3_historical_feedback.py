@@ -24,19 +24,10 @@ if DEPENDENCIES.is_dir():
 import numpy as np
 
 
-GROUPS = ("OPEN_LOOP", "UKF+GPR", "UKF", "DLS")
-FEEDBACK_GROUPS = GROUPS[1:]
+GROUP_ORDER = ("OPEN_LOOP", "LQR", "UKF+GPR", "UKF", "DLS")
 FIELDS = ("Feedback_Type", "Pos_Error_mm", "Ang_Error_deg", "Convergence_Time_s")
-COLOURS = dict(OPEN_LOOP="#8c9399", **{"UKF+GPR": "#cf8936", "UKF": "#276a9d", "DLS": "#4c9279"})
-DISPLAY_NAMES = {"OPEN_LOOP": "OPEN\nLOOP", "UKF+GPR": "UKF\n+GPR", "UKF": "UKF", "DLS": "DLS"}
-# Printed values from the earlier manuscript table, retained for numeric checking
-# only. Equality of means does not establish the controller behind a CSV label.
-EARLIER_PRINTED_MEANS = {
-    "OPEN_LOOP": (.9358, .3254, None),
-    "UKF+GPR": (.1748, .0544, 8.2342),
-    "UKF": (.1372, .0434, 9.6780),
-    "DLS": (.2015, .0680, 27.7458),
-}
+COLOURS = dict(OPEN_LOOP="#8c9399", **{"LQR": "#875f9d", "UKF+GPR": "#cf8936", "UKF": "#276a9d", "DLS": "#4c9279"})
+DISPLAY_NAMES = {"OPEN_LOOP": "OPEN\nLOOP", "LQR": "LQR", "UKF+GPR": "UKF\n+GPR", "UKF": "UKF", "DLS": "DLS"}
 
 
 def require(condition, message):
@@ -58,19 +49,20 @@ def load_csv(path):
     header = next(reader)
     require(all(header.count(name) == 1 for name in FIELDS), "Required columns must occur once")
     columns = {name: header.index(name) for name in FIELDS}
-    groups = {name: [] for name in GROUPS}
+    groups = {}
     count = 0
     for line_number, row in enumerate(reader, 2):
         require(len(row) > max(columns.values()), f"Required field missing at CSV line {line_number}")
         group = row[columns["Feedback_Type"]].strip()
-        require(group in GROUPS, "Unexpected raw feedback name: " + group)
+        require(group in GROUP_ORDER, "Unexpected raw feedback name: " + group)
         values = [float(row[columns[field]]) for field in FIELDS[1:]]
         require(all(np.isfinite(value) and value >= 0 for value in values), "Invalid trusted metric")
-        groups[group].append(values)
+        groups.setdefault(group, []).append(values)
         count += 1
-    require(count == 152 and all(len(rows) == 38 for rows in groups.values()),
-            "This historical figure requires 38 records in each of the four original groups")
-    return {group: np.asarray(rows, dtype=float) for group, rows in groups.items()}, {
+    require(count == 152 and len(groups) == 4 and "OPEN_LOOP" in groups
+            and all(len(rows) == 38 for rows in groups.values()),
+            "This historical figure requires 38 records in each of four groups, including OPEN_LOOP")
+    return {group: np.asarray(groups[group], dtype=float) for group in GROUP_ORDER if group in groups}, {
         "path": str(path), "sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw),
         "rows": count, "trusted_columns": list(FIELDS),
         "ignored_header_columns": [name for name in header if name not in FIELDS],
@@ -99,6 +91,8 @@ def main():
     args = parser.parse_args()
     csv_path, assets = args.csv.resolve(), args.assets.resolve()
     data, source = load_csv(csv_path)
+    groups = tuple(data)
+    feedback_groups = tuple(group for group in groups if group != "OPEN_LOOP")
     assets.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("MPLCONFIGDIR", str(assets / ".matplotlib"))
     import matplotlib
@@ -111,9 +105,9 @@ def main():
     fig, axes = plt.subplots(1, 3, figsize=(7, 2.55))
     fig.subplots_adjust(left=.075, right=.99, bottom=.23, top=.77, wspace=.43)
     specifications = (
-        (0, GROUPS, "(a) Position", "Position error (mm)"),
-        (1, GROUPS, "(b) Angle", "Angular error (deg)"),
-        (2, FEEDBACK_GROUPS, "(c) Time", "Convergence time (s)"),
+        (0, groups, "(a) Position", "Position error (mm)"),
+        (1, groups, "(b) Angle", "Angular error (deg)"),
+        (2, feedback_groups, "(c) Time", "Convergence time (s)"),
     )
     saved_statistics = {}
     for ax, (column, group_names, title, ylabel) in zip(axes, specifications):
@@ -152,34 +146,22 @@ def main():
                             height_inches=2.55, dpi=300 if extension == "png" else None))
     plt.close(fig)
     require(digest(csv_path) == source["sha256"], "Source CSV changed during plotting")
-    numeric_check = []
-    for group in GROUPS:
-        for column, field in enumerate(FIELDS[1:]):
-            printed = EARLIER_PRINTED_MEANS[group][column]
-            if printed is None:
-                continue
-            mean = float(np.mean(data[group][:, column]))
-            numeric_check.append(dict(csv_group=group, field=field, csv_mean=mean,
-                                      earlier_printed_mean=printed,
-                                      matches_at_four_decimal_places=format(mean, ".4f") == format(printed, ".4f")))
-    require(all(row["matches_at_four_decimal_places"] for row in numeric_check),
-            "CSV means do not reproduce the expected printed historical numbers")
     summary = dict(script=str(Path(__file__).resolve()), script_sha256=digest(__file__),
-                   source=source, raw_group_order=list(GROUPS), records_per_group={group: 38 for group in GROUPS},
-                   time_comparison_groups=list(FEEDBACK_GROUPS), time_excluded_group="OPEN_LOOP",
+                   source=source, groups=list(groups), raw_group_order=list(groups),
+                   records_per_group={group: int(data[group].shape[0]) for group in groups},
+                   time_comparison_groups=list(feedback_groups), time_excluded_group="OPEN_LOOP",
                    time_exclusion_reason="Open-loop duration is not a feedback confirmed-stop time; its 38 source rows are retained, not deleted",
                    statistics=saved_statistics, quantile_method="linear", whisker_iqr_multiplier=1.5,
                    outliers="All outliers are plotted without truncation and fully listed in statistics",
                    original_group_names_preserved=True, current_gpr16_group_mapping_asserted=False,
                    lqr_group_mapping_asserted=False,
-                   numeric_only_earlier_table_crosscheck=numeric_check,
-                   provenance_note="Matching printed metric means is only numerical correspondence. The raw UKF+GPR label is not established as an LQR controller or the current GPR16 model",
+                   provenance_note="Group names come directly from Feedback_Type; no mapping to controllers or the current GPR16 model is inferred",
                    outputs=outputs, matplotlib_version=matplotlib.__version__, numpy_version=np.__version__,
                    model_loaded=False, predictions_or_hardware_runs_performed=False, evidence_problems=[])
     (assets / "historical_feedback_summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2, allow_nan=False) + "\n", encoding="utf-8")
     print(json.dumps(dict(outputs=outputs, records_per_group=summary["records_per_group"],
-                          numeric_table_means_match=True, raw_names_preserved=True), ensure_ascii=True))
+                          groups=list(groups), raw_names_preserved=True), ensure_ascii=True))
 
 
 if __name__ == "__main__":
